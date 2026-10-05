@@ -43,10 +43,13 @@ Add it to Claude Code's `.mcp.json`:
 | --- | --- | --- |
 | `M5_HOST` / `M5_HOSTS` | Hostname/IP of the M5 device (comma-separated for fallback) | — |
 | `CHARACTER_ID` | M5 character ID (used for album / voice memo storage, etc.) | — |
-| `VOICE_API_HOST` | Host running ASR (speech recognition) and TTS (speech synthesis). ASR is expected on `:8765`, TTS on `:8766` | — |
+| `VOICE_API_HOST` | Host running ASR (speech recognition) and TTS (speech synthesis). ASR is expected on `:8765`, TTS on `:8766` | `localhost` |
 | `TTS_FALLBACK_URL` | Fallback TTS endpoint if the primary one is unreachable | `http://localhost:8766` |
 | `DASHBOARD_HOST` / `DASHBOARD_URL` | URL of the [m5-petit-app](https://github.com/PetitOnes/m5-petit-app) dashboard (used for album, voice memo, and relay features) | `http://127.0.0.1:8765` |
-| `PETIT_DATA_DIR` | Where voice settings and similar data are stored (auto-created on `set_voice`) | `~/petit_claude` |
+| `PETIT_DATA_DIR` | Where voice settings and similar data are stored (auto-created on `set_voice`) | `~/petit_data` |
+| `M5_PERSON_IDS` / `M5_CHARACTER_IDS` / `M5_EXAMPLE_ID` | Id hints shown in tool descriptions (ids that can own albums/memos / ids that can be relay partners / the id used in examples), e.g. `alice / bob / owner` | generic wording |
+| `PRINTER_ADDRESS` / `PRINTER_CHANNEL` | Bluetooth address and channel of the thermal printer | — / `1` |
+| `ROVER_URL` | Rover URL(s), comma-separated | `http://rover.local` |
 | `M5_ALLOWED_TOOLS` | Comma-separated list of tool names to expose, if you want to restrict them (all tools are exposed if unset) | — |
 
 ## Tools
@@ -80,3 +83,9 @@ Add it to Claude Code's `.mcp.json`:
 `batch_commands` — send multiple commands in one call
 
 `conversation_relay` — hand off a conversation to another character. Requires a dashboard with a multi-character relay API (`/api/relay/start`), which the current [m5-petit-app](https://github.com/PetitOnes/m5-petit-app) (single-user / single-M5 setup) **does not implement**. Only works with a multi-character dashboard.
+
+### Rover / printer
+
+`rover_*` (move, rotate, stop, …; requires `ROVER_URL`) / `print_text` `print_image_text` (requires `PRINTER_ADDRESS`)
+
+> Tool descriptions are in Japanese (this is the code running daily in our home, published as is).
