@@ -45,7 +45,7 @@ Add it to Claude Code's `.mcp.json`:
 | `CHARACTER_ID` | M5 character ID (used for album / voice memo storage, etc.) | — |
 | `VOICE_API_HOST` | Host running ASR (speech recognition) and TTS (speech synthesis). ASR is expected on `:8765`, TTS on `:8766` | `localhost` |
 | `TTS_FALLBACK_URL` | Fallback TTS endpoint if the primary one is unreachable | `http://localhost:8766` |
-| `DASHBOARD_HOST` / `DASHBOARD_URL` | URL of the [m5-petit-app](https://github.com/PetitOnes/m5-petit-app) dashboard (used for album, voice memo, and relay features) | `http://127.0.0.1:8765` |
+| `DASHBOARD_HOST` / `DASHBOARD_URL` | Where the [m5-petit-app](https://github.com/PetitOnes/m5-petit-app) dashboard is (album, voice memo, relay). `DASHBOARD_URL` wins when set (for a port other than 8765). The token in `$PETIT_DATA_DIR/.internal_token` is read automatically (no setup; use the same `PETIT_DATA_DIR` as the dashboard) | `http://127.0.0.1:8765` |
 | `PETIT_DATA_DIR` | Where voice settings and similar data are stored (auto-created on `set_voice`) | `~/petit_data` |
 | `M5_PERSON_IDS` / `M5_CHARACTER_IDS` / `M5_EXAMPLE_ID` | Id hints shown in tool descriptions (ids that can own albums/memos / ids that can be relay partners / the id used in examples), e.g. `alice / bob / owner` | generic wording |
 | `PRINTER_ADDRESS` / `PRINTER_CHANNEL` | Bluetooth address and channel of the thermal printer | — / `1` |
