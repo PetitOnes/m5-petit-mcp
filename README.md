@@ -43,10 +43,13 @@ Claude Codeの`.mcp.json`に追加します。
 | --- | --- | --- |
 | `M5_HOST` / `M5_HOSTS` | M5デバイスのホスト名/IP(カンマ区切りでフォールバック指定可) | — |
 | `CHARACTER_ID` | M5キャラクターID(アルバム・ボイスメモの保存先などに使用) | — |
-| `VOICE_API_HOST` | 音声認識(ASR)・音声合成(TTS)サーバーのホスト。ASRは`:8765`、TTSは`:8766`で待ち受け想定 | — |
+| `VOICE_API_HOST` | 音声認識(ASR)・音声合成(TTS)サーバーのホスト。ASRは`:8765`、TTSは`:8766`で待ち受け想定 | `localhost` |
 | `TTS_FALLBACK_URL` | プライマリのTTSに接続できないときのフォールバック先 | `http://localhost:8766` |
 | `DASHBOARD_HOST` / `DASHBOARD_URL` | [m5-petit-app](https://github.com/PetitOnes/m5-petit-app)ダッシュボードのURL(アルバム・ボイスメモ・リレー機能で使用) | `http://127.0.0.1:8765` |
-| `PETIT_DATA_DIR` | 音声設定などのデータ保存先(`set_voice`実行時に自動作成される) | `~/petit_claude` |
+| `PETIT_DATA_DIR` | 音声設定などのデータ保存先(`set_voice`実行時に自動作成される) | `~/petit_data` |
+| `M5_PERSON_IDS` / `M5_CHARACTER_IDS` / `M5_EXAMPLE_ID` | 道具の説明文に出すidの案内(アルバムやメモの持ち主になれるid一覧 / 会話リレーの相手になれるid一覧 / 例に使うid)。例: `alice / bob / owner` | 一般的な文言 |
+| `PRINTER_ADDRESS` / `PRINTER_CHANNEL` | 感熱紙プリンター(Bluetooth)のアドレスとチャンネル | — / `1` |
+| `ROVER_URL` | ローバーのURL(カンマ区切りで複数可) | `http://rover.local` |
 | `M5_ALLOWED_TOOLS` | 公開するツール名をカンマ区切りで制限したいとき(未設定なら全ツール公開) | — |
 
 ## ツール一覧
@@ -80,3 +83,9 @@ Claude Codeの`.mcp.json`に追加します。
 `batch_commands` — 複数コマンドをまとめて送信
 
 `conversation_relay` — 別のキャラクターに会話を引き継ぐ。ダッシュボード側に複数キャラクター用のリレーAPI(`/api/relay/start`)が必要で、**現状の[m5-petit-app](https://github.com/PetitOnes/m5-petit-app)(1ユーザー/1M5構成)は未対応**です。複数キャラクター構成のダッシュボードを使う場合のみ機能します。
+
+### ローバー・プリンター
+
+`rover_*`(移動・回転・停止など、要 `ROVER_URL`) / `print_text` `print_image_text`(要 `PRINTER_ADDRESS`)
+
+> 道具の説明文は日本語です(毎日動いている環境のものをそのまま公開しています)。
