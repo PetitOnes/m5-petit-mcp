@@ -28,7 +28,19 @@ _TTS_URL = f"http://{VOICE_API_HOST}:8766"
 # GPU PCがつながらないときのフォールバック（localhost:8766）
 _TTS_FALLBACK_URL = os.environ.get("TTS_FALLBACK_URL", "http://localhost:8766")
 # ダッシュボードは常に同じマシン上で動くので127.0.0.1を使う
-_DASHBOARD_URL = f"http://{os.environ.get('DASHBOARD_HOST', '127.0.0.1')}:8765"
+# DASHBOARD_URL があればそれを使う(ポートが 8765 でないとき)
+_DASHBOARD_URL = os.environ.get("DASHBOARD_URL") or f"http://{os.environ.get('DASHBOARD_HOST', '127.0.0.1')}:8765"
+
+def _dash_headers() -> dict:
+    """ダッシュボード(m5-petit-app)に送る合言葉。ダッシュボードが起動時に作る
+    $PETIT_DATA_DIR/.internal_token を読む。無ければ何も付けない(合言葉を使わないダッシュボード向け)。"""
+    data_dir = os.environ.get("PETIT_DATA_DIR", os.path.join(os.path.expanduser("~"), "petit_data"))
+    try:
+        token = Path(data_dir, ".internal_token").read_text(encoding="utf-8").strip()
+    except OSError:
+        return {}
+    return {"X-Petit-Internal-Token": token} if token else {}
+
 
 def _init_hosts():
     global _m5_hosts
@@ -454,7 +466,7 @@ async def save_to_album(person_id: str, title: str):
     }
     dashboard_url = _DASHBOARD_URL
     resp = await asyncio.to_thread(
-        lambda: _req.post(f"{dashboard_url}/api/album/snapshot", json=payload, timeout=15)
+        lambda: _req.post(f"{dashboard_url}/api/album/snapshot", json=payload, headers=_dash_headers(), timeout=15)
     )
     if resp.status_code == 200:
         j = resp.json()
@@ -472,7 +484,7 @@ async def lock_album_photo(album_owner_id: str, filename: str):
     import requests as _req
     dashboard_url = _DASHBOARD_URL
     resp = await asyncio.to_thread(
-        lambda: _req.post(f"{dashboard_url}/api/album/{album_owner_id}/{filename}/lock", timeout=10)
+        lambda: _req.post(f"{dashboard_url}/api/album/{album_owner_id}/{filename}/lock", headers=_dash_headers(), timeout=10)
     )
     if resp.status_code == 200:
         return resp.json()
@@ -491,7 +503,7 @@ async def delete_album_photo(filename: str):
     import requests as _req
     dashboard_url = _DASHBOARD_URL
     resp = await asyncio.to_thread(
-        lambda: _req.delete(f"{dashboard_url}/api/album/{person_id}/{filename}", timeout=10)
+        lambda: _req.delete(f"{dashboard_url}/api/album/{person_id}/{filename}", headers=_dash_headers(), timeout=10)
     )
     if resp.status_code == 200:
         return {"ok": True}
@@ -507,7 +519,7 @@ async def list_album(person_id: str, unread_by: str = ""):
     import requests as _req
     dashboard_url = _DASHBOARD_URL
     resp = await asyncio.to_thread(
-        lambda: _req.get(f"{dashboard_url}/api/album/{person_id}", timeout=10)
+        lambda: _req.get(f"{dashboard_url}/api/album/{person_id}", headers=_dash_headers(), timeout=10)
     )
     if resp.status_code != 200:
         return {"ok": False, "status": resp.status_code}
@@ -528,7 +540,7 @@ async def view_album_photo(album_owner_id: str, filename: str, viewer_id: str):
     dashboard_url = _DASHBOARD_URL
     # 画像取得
     img_resp = await asyncio.to_thread(
-        lambda: _req.get(f"{dashboard_url}/api/album/{album_owner_id}/{filename}", timeout=10)
+        lambda: _req.get(f"{dashboard_url}/api/album/{album_owner_id}/{filename}", headers=_dash_headers(), timeout=10)
     )
     if img_resp.status_code != 200:
         return {"ok": False, "status": img_resp.status_code}
@@ -537,7 +549,7 @@ async def view_album_photo(album_owner_id: str, filename: str, viewer_id: str):
     await asyncio.to_thread(
         lambda: _req.post(
             f"{dashboard_url}/api/album/{album_owner_id}/{filename}/read",
-            params={"viewer": viewer_id}, timeout=5
+            params={"viewer": viewer_id}, headers=_dash_headers(), timeout=5
         )
     )
     return [ImageContent(type="image", data=img_b64, mimeType="image/jpeg")]
@@ -718,7 +730,7 @@ async def speak(
                 f"{_DASHBOARD_URL}/api/voice_memo/{char_id}/upload",
                 data={"title": title},
                 files={"file": ("memo.wav", wav_bytes_holder[0], "audio/wav")},
-                timeout=15,
+                headers=_dash_headers(), timeout=15,
             )
         await asyncio.to_thread(_upload_memo)
 
@@ -737,7 +749,7 @@ async def list_voice_memos(person_id: str, unlistened_by: str = ""):
         params = {}
         if unlistened_by:
             params["unlistened_by"] = unlistened_by
-        r = requests.get(f"{dashboard_url}/api/voice_memo/{person_id}", params=params, timeout=10)
+        r = requests.get(f"{dashboard_url}/api/voice_memo/{person_id}", params=params, headers=_dash_headers(), timeout=10)
         r.raise_for_status()
         return r.json()
     result = await asyncio.to_thread(_fetch)
@@ -763,7 +775,7 @@ async def listen_voice_memo(
     def _fetch_and_play():
         dashboard_url = _DASHBOARD_URL
         # 音声取得
-        r = requests.get(f"{dashboard_url}/api/voice_memo/{owner_id}/{filename}", timeout=15)
+        r = requests.get(f"{dashboard_url}/api/voice_memo/{owner_id}/{filename}", headers=_dash_headers(), timeout=15)
         r.raise_for_status()
         audio_bytes = r.content
         ext = Path(filename).suffix.lower()
@@ -807,7 +819,7 @@ async def listen_voice_memo(
         requests.post(
             f"{dashboard_url}/api/voice_memo/{owner_id}/{filename}/listen",
             params={"listener": char_id},
-            timeout=10,
+            headers=_dash_headers(), timeout=10,
         )
         return transcript
 
@@ -855,7 +867,7 @@ async def save_tts_memo(text: str, title: str = ""):
             f"{_DASHBOARD_URL}/api/voice_memo/{char_id}/upload",
             data={"title": memo_title},
             files={"file": ("memo.wav", r.content, "audio/wav")},
-            timeout=15,
+            headers=_dash_headers(), timeout=15,
         ).raise_for_status()
         return memo_title
 
@@ -873,7 +885,7 @@ async def lock_voice_memo(owner_id: str, filename: str):
     def _toggle():
         r = requests.post(
             f"{_DASHBOARD_URL}/api/voice_memo/{owner_id}/{filename}/lock",
-            timeout=10,
+            headers=_dash_headers(), timeout=10,
         )
         r.raise_for_status()
         return r.json()
@@ -914,7 +926,7 @@ async def conversation_relay(to_character: str, message: str, turns_remaining: i
         r = requests.post(
             f"{dashboard_url}/api/relay/start",
             json={"from_char": char_id, "to_char": to_character, "message": message, "turns_remaining": turns_remaining},
-            timeout=10,
+            headers=_dash_headers(), timeout=10,
         )
         r.raise_for_status()
         return r.json()
