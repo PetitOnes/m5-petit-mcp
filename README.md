@@ -45,6 +45,7 @@ Claude Codeの`.mcp.json`に追加します。
 | `CHARACTER_ID` | M5キャラクターID(アルバム・ボイスメモの保存先などに使用) | — |
 | `VOICE_API_HOST` | 音声認識(ASR)・音声合成(TTS)サーバーのホスト。ASRは`:8765`、TTSは`:8766`で待ち受け想定 | `localhost` |
 | `TTS_FALLBACK_URL` | プライマリのTTSに接続できないときのフォールバック先 | `http://localhost:8766` |
+| `ASR_FALLBACK_URL` | プライマリのASR(`VOICE_API_HOST:8765`)に接続できない・エラーのときのフォールバック先。同じPCで動かす [m5-petit-voice-recognition](https://github.com/PetitOnes/m5-petit-voice-recognition) は `:8767`(`:8765` はダッシュボードが使うため) | `http://localhost:8767` |
 | `DASHBOARD_HOST` / `DASHBOARD_URL` | [m5-petit-app](https://github.com/PetitOnes/m5-petit-app)ダッシュボードの場所(アルバム・ボイスメモ・リレー機能で使用)。`DASHBOARD_URL` があればそれを優先(ポートが8765でないとき)。合言葉は `$PETIT_DATA_DIR/.internal_token` を自動で読む(設定不要。ダッシュボードと同じ `PETIT_DATA_DIR` にすること) | `http://127.0.0.1:8765` |
 | `PETIT_DATA_DIR` | 音声設定などのデータ保存先(`set_voice`実行時に自動作成される) | `~/petit_data` |
 | `M5_PERSON_IDS` / `M5_CHARACTER_IDS` / `M5_EXAMPLE_ID` | 道具の説明文に出すidの案内(アルバムやメモの持ち主になれるid一覧 / 会話リレーの相手になれるid一覧 / 例に使うid)。例: `alice / bob / owner` | 一般的な文言 |
