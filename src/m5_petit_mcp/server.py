@@ -27,6 +27,24 @@ _ASR_URL = f"http://{VOICE_API_HOST}:8765"
 _TTS_URL = f"http://{VOICE_API_HOST}:8766"
 # GPU PCがつながらないときのフォールバック（localhost:8766）
 _TTS_FALLBACK_URL = os.environ.get("TTS_FALLBACK_URL", "http://localhost:8766")
+# ASR のフォールバック。同じ PC で動かす m5-petit-voice-recognition は :8767(:8765 はダッシュボードが使う)
+_ASR_FALLBACK_URL = os.environ.get("ASR_FALLBACK_URL", "http://localhost:8767")
+
+
+def _asr_post(path: str, filename: str, data: bytes, timeout: int = 60) -> requests.Response:
+    """ASR に音声を POST する。まず VOICE_API_HOST:8765、つながらない・エラーのときは ASR_FALLBACK_URL。
+    VOICE_API_HOST=localhost のとき :8765 はダッシュボードなので 404 が返る → それもフォールバックに含める。"""
+    last: Exception | None = None
+    for url in (_ASR_URL, _ASR_FALLBACK_URL):
+        try:
+            r = requests.post(f"{url}{path}", files={"file": (filename, io.BytesIO(data), "audio/wav")}, timeout=timeout)
+            r.raise_for_status()
+            return r
+        except requests.RequestException as e:
+            last = e
+            continue
+    assert last is not None
+    raise last
 # ダッシュボードは常に同じマシン上で動くので127.0.0.1を使う
 # DASHBOARD_URL があればそれを使う(ポートが 8765 でないとき)
 _DASHBOARD_URL = os.environ.get("DASHBOARD_URL") or f"http://{os.environ.get('DASHBOARD_HOST', '127.0.0.1')}:8765"
@@ -787,12 +805,7 @@ async def listen_voice_memo(
                 tmp_path = f.name
             try:
                 wav_buf = _convert_wav_mono_16k(tmp_path)
-                asr_r = requests.post(
-                    f"{_ASR_URL}/transcribe",
-                    files={"file": (Path(filename).stem + ".wav", wav_buf, "audio/wav")},
-                    timeout=60,
-                )
-                asr_r.raise_for_status()
+                asr_r = _asr_post("/transcribe", Path(filename).stem + ".wav", wav_buf.getvalue(), timeout=60)
                 transcript = asr_r.json().get("text", "")
             except Exception as e:
                 transcript = f"(文字起こし失敗: {e})"
@@ -899,13 +912,8 @@ async def transcribe_audio(file_path: str):
     """ローカルのWAVファイルを音声認識してテキストを返す"""
     def _transcribe():
         with open(file_path, "rb") as f:
-            r = requests.post(
-                f"{_ASR_URL}/transcribe",
-                files={"file": (os.path.basename(file_path), f, "audio/wav")},
-                timeout=60,
-            )
-            r.raise_for_status()
-            return r.json()
+            data = f.read()
+        return _asr_post("/transcribe", os.path.basename(file_path), data, timeout=60).json()
     result = await asyncio.to_thread(_transcribe)
     return result
 
