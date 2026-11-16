@@ -73,7 +73,7 @@ Claude Codeの`.mcp.json`に追加します。
 
 ### アルバム(要 m5-petit-app)
 
-`save_to_album` `list_album` `view_album_photo` `lock_album_photo` `delete_album_photo`
+`save_to_album` `keep_snapshot`(さっき撮った写真を撮り直さずに残す) `list_album` `view_album_photo` `lock_album_photo` `delete_album_photo`
 
 ### ボイスメモ(要 m5-petit-app、文字起こしは要 `VOICE_API_HOST`)
 
