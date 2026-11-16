@@ -710,6 +710,7 @@ async def speak(
     speed_scale: 話速(0.5〜2.0)、pitch_scale: 音高(-0.15〜0.15)、intonation_scale: 抑揚(0〜2.0)、volume_scale: 音量(0〜2.0)
     pre_phoneme_length / post_phoneme_length: 前後の無音(秒)。省略したものは保存した値
     save_as_memo: True でダッシュボードのボイスメモにも残す。memo_title: その題(省略すると先頭 20 文字)
+    体が眠っているときの声は、起きたときに鳴る(眠っている間の分は最後の 1 つだけ)。今すぐ声を出したいときは、wake で起こしてから speak する
     """
     # 保存済み設定を読み込み、未指定パラメータのデフォルトに使う
     saved = _load_voice_settings()
@@ -771,7 +772,19 @@ async def speak(
             )
         await asyncio.to_thread(_upload_memo)
 
+    if await asyncio.to_thread(_body_sleeping):
+        return (f"spoke: {text}\n"
+                "体は眠っているので、この声は起きたときに鳴る(眠っている間に話した分は、最後の 1 つだけ)。"
+                "今すぐ声を出したいときは、wake で起こしてから speak するといいよ")
     return f"spoke: {text}"
+
+
+def _body_sleeping() -> bool:
+    """体が眠っているか(/status の is_sleeping)。分からないときは False"""
+    try:
+        return bool(_http_get("/status", timeout=3).json().get("is_sleeping"))
+    except Exception:
+        return False
 
 
 @mcp.tool()
