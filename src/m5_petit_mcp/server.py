@@ -49,6 +49,24 @@ def _asr_post(path: str, filename: str, data: bytes, timeout: int = 60) -> reque
 # DASHBOARD_URL があればそれを使う(ポートが 8765 でないとき)
 _DASHBOARD_URL = os.environ.get("DASHBOARD_URL") or f"http://{os.environ.get('DASHBOARD_HOST', '127.0.0.1')}:8765"
 
+def _removed_sounds() -> set[str]:
+    """その子が外した音(家が覚えている)。体の SD には残っているが、一覧に出さず、鳴らさない。
+
+    家の $PETIT_DATA_DIR/state/sounds/bodies.json の {CHARACTER_ID: {"removed": [...]}} を読む。
+    体は音を消せないので、外すのは家の側の覚え。無ければ何も外さない。
+    """
+    char_id = os.environ.get("CHARACTER_ID", "")
+    data_dir = os.environ.get("PETIT_DATA_DIR", os.path.join(os.path.expanduser("~"), "petit_data"))
+    if not char_id:
+        return set()
+    try:
+        data = json.loads(Path(data_dir, "state", "sounds", "bodies.json").read_text(encoding="utf-8"))
+        removed = data.get(char_id, {}).get("removed", [])
+        return {str(n) for n in removed} if isinstance(removed, list) else set()
+    except (OSError, ValueError, AttributeError):
+        return set()
+
+
 def _dash_headers() -> dict:
     """ダッシュボード(m5-petit-app)に送る合言葉。ダッシュボードが起動時に作る
     $PETIT_DATA_DIR/.internal_token を読む。無ければ何も付けない(合言葉を使わないダッシュボード向け)。"""
@@ -248,9 +266,11 @@ async def show_face(name: str):
 
 @mcp.tool()
 async def list_sounds():
-    """SDカードの効果音ファイル一覧を取得"""
+    """SDカードの効果音ファイル一覧を取得(自分で外した音は出さない)"""
     r = await asyncio.to_thread(lambda: _http_get("/se_list"))
-    return r.json()
+    names = r.json()
+    removed = _removed_sounds()
+    return [n for n in names if n not in removed] if isinstance(names, list) and removed else names
 
 
 @mcp.tool()
@@ -296,6 +316,8 @@ async def set_face_slideshow_mode():
 @mcp.tool()
 async def play_sound(name: str):
     """効果音を再生。nameはlist_soundsで取得したファイル名"""
+    if name in _removed_sounds():
+        return f"{name} は外した音なので鳴らしません(また使いたいときは、家の人に戻してもらう)"
     await asyncio.to_thread(lambda: _http_get(f"/se_play?name={name}"))
     return f"played: {name}"
 
