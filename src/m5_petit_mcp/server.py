@@ -695,17 +695,6 @@ async def set_voice(
 @mcp.tool()
 async def speak(
     text: str,
-    engine: str = "voicevox",
-    # piper
-    speaker: int = 0,
-    length_scale: float = 1.0,
-    noise_scale: float = 0.5,
-    noise_w: float = 0.8,
-    sentence_silence: float = 0.2,
-    # kokoro
-    voice: str = "jf_alpha",
-    speed: float = 1.0,
-    # voicevox
     voicevox_speaker: Optional[int] = None,
     speed_scale: Optional[float] = None,
     pitch_scale: Optional[float] = None,
@@ -716,29 +705,11 @@ async def speak(
     save_as_memo: bool = False,
     memo_title: str = "",
 ):
-    """テキストをTTSで音声合成してM5で再生する。
-
-    engine: "voicevox"（デフォルト）/ "kokoro" / "piper"
-
-    [voicevox]
-      voicevox_speaker: 話者番号（省略すると set_voice で設定した声、未設定なら 6）
-        6=四国めたんツンツン, 23=WhiteCULノーマル, 47=ナースロボＴノーマル, 29=No.7ノーマル
-      speed_scale: 話速（0.5〜2.0）
-      pitch_scale: 音高（-0.15〜0.15）
-      intonation_scale: 抑揚（0〜2.0）
-      volume_scale: 音量（0〜2.0）
-      pre_phoneme_length / post_phoneme_length: 前後の無音（秒）
-      ※省略したパラメータは set_voice で保存した値を使う
-    save_as_memo: Trueにするとダッシュボードのボイスメモにも保存される
-    memo_title: ボイスメモのタイトル（省略するとテキストの先頭20文字）
-
-    [kokoro]
-      voice: jf_alpha / jf_gongitsune / jf_nezumi / jf_tebukuro / jm_kumo
-      speed: 速さ倍率
-
-    [piper]
-      speaker: 話者ID（デフォルト0）
-      length_scale: 速さ（小さいほど速い）
+    """声に出す(VOICEVOX で合成して体で再生)。ふだんは text だけでよい。声の設定は set_voice で保存したものを使う。
+    voicevox_speaker: 話者番号(省略すると保存した声)
+    speed_scale: 話速(0.5〜2.0)、pitch_scale: 音高(-0.15〜0.15)、intonation_scale: 抑揚(0〜2.0)、volume_scale: 音量(0〜2.0)
+    pre_phoneme_length / post_phoneme_length: 前後の無音(秒)。省略したものは保存した値
+    save_as_memo: True でダッシュボードのボイスメモにも残す。memo_title: その題(省略すると先頭 20 文字)
     """
     # 保存済み設定を読み込み、未指定パラメータのデフォルトに使う
     saved = _load_voice_settings()
@@ -748,26 +719,18 @@ async def speak(
     wav_bytes_holder: list[bytes] = []
 
     def _tts_and_upload():
-        if engine == "kokoro":
-            payload = {"text": text, "engine": "kokoro", "voice": voice, "speed": speed, "lang": "ja"}
-        elif engine == "voicevox":
-            payload = {"text": text, "engine": "voicevox", "voicevox_speaker": resolved_speaker, "speed_scale": resolved_speed}
-            for key, val, saved_key in [
-                ("pitch_scale", pitch_scale, "pitch_scale"),
-                ("intonation_scale", intonation_scale, "intonation_scale"),
-                ("volume_scale", volume_scale, "volume_scale"),
-                ("pre_phoneme_length", pre_phoneme_length, "pre_phoneme_length"),
-                ("post_phoneme_length", post_phoneme_length, "post_phoneme_length"),
-            ]:
-                v = val if val is not None else saved.get(saved_key)
-                if v is not None:
-                    payload[key] = v
-        else:  # piper
-            payload = {
-                "text": text, "engine": "piper", "speaker": speaker,
-                "length_scale": length_scale, "noise_scale": noise_scale,
-                "noise_w": noise_w, "sentence_silence": sentence_silence,
-            }
+        # エンジンは VOICEVOX だけ(2026-11-16 ありさん: kokoro / piper は半年で 1 回も使われず、説明が長いだけだった)
+        payload = {"text": text, "engine": "voicevox", "voicevox_speaker": resolved_speaker, "speed_scale": resolved_speed}
+        for key, val, saved_key in [
+            ("pitch_scale", pitch_scale, "pitch_scale"),
+            ("intonation_scale", intonation_scale, "intonation_scale"),
+            ("volume_scale", volume_scale, "volume_scale"),
+            ("pre_phoneme_length", pre_phoneme_length, "pre_phoneme_length"),
+            ("post_phoneme_length", post_phoneme_length, "post_phoneme_length"),
+        ]:
+            v = val if val is not None else saved.get(saved_key)
+            if v is not None:
+                payload[key] = v
         for _tts_url in [_TTS_URL, _TTS_FALLBACK_URL]:
             try:
                 r = requests.post(f"{_tts_url}/speak", json=payload, timeout=30)
