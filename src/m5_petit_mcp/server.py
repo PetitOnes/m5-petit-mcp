@@ -1,5 +1,5 @@
 from mcp.server.fastmcp import FastMCP
-from mcp.types import ImageContent
+from mcp.types import ImageContent, TextContent
 import asyncio
 import websockets
 from websockets.protocol import State as WsState
@@ -186,14 +186,48 @@ async def _send(cmd: str):
 
 # ===================== ツール：HTTP系（レスポンス必要） =====================
 
+# 撮ったばかりの写真(2026-11-16 ありさん: 撮ったあとで「残す・残さない」を決められるように)。
+# take_snapshot は見るだけで保存しない。残すなら keep_snapshot(撮り直さない)。1 時間たったら消える
+_LAST_SNAPSHOT: dict = {"data": None, "at": 0.0}
+KEEP_SNAPSHOT_S = 3600
+
+
 @mcp.tool()
 async def take_snapshot():
-    """M5カメラで写真を撮る"""
+    """M5カメラで写真を撮って見る。撮った写真はどこにも保存されない。
+    残したくなったら keep_snapshot(person_id, title) で、撮り直さずにこの写真をアルバムに残せる(1 時間以内)。
+    """
+    import time as _time
     r = await asyncio.to_thread(lambda: _http_get("/snapshot", timeout=10))
     if r.status_code != 200:
         return "camera failed"
+    _LAST_SNAPSHOT["data"] = r.content
+    _LAST_SNAPSHOT["at"] = _time.time()
     img_b64 = base64.b64encode(r.content).decode()
-    return [ImageContent(type="image", data=img_b64, mimeType="image/jpeg")]
+    return [ImageContent(type="image", data=img_b64, mimeType="image/jpeg"),
+            TextContent(type="text", text="(この写真は保存されていない。残したいときは keep_snapshot(person_id, title)。残さなければ、そのまま消える)")]
+
+
+@mcp.tool()
+async def keep_snapshot(person_id: str, title: str):
+    """さっき take_snapshot で撮った写真(1 時間以内)を、撮り直さずにアルバムに残す。
+    person_id: {PERSON_IDS}
+    title: 写真のタイトル（例: お散歩、今日の空）
+    撮っていない・古いときは ok: false(そのときは save_to_album で撮り直して残す)。
+    """
+    import time as _time
+    data = _LAST_SNAPSHOT.get("data")
+    if not data or _time.time() - float(_LAST_SNAPSHOT.get("at") or 0) > KEEP_SNAPSHOT_S:
+        return {"ok": False, "error": "残せる写真がない(撮っていないか、1 時間より前)。save_to_album で撮り直して残せる"}
+    import requests as _req
+    payload = {"person_id": person_id, "title": title, "image_b64": base64.b64encode(data).decode()}
+    resp = await asyncio.to_thread(
+        lambda: _req.post(f"{_DASHBOARD_URL}/api/album/snapshot", json=payload, headers=_dash_headers(), timeout=15)
+    )
+    if resp.status_code == 200:
+        _LAST_SNAPSHOT["data"] = None   # 同じ写真を二度残さない
+        return {"ok": True, "filename": resp.json().get("filename")}
+    return {"ok": False, "status": resp.status_code}
 
 
 @mcp.tool()
